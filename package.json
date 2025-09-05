@@ -1,0 +1,25 @@
+{
+  "name": "js-playwright",
+  "version": "1.0.0",
+  "description": "UI Test Automation for DemoBlaze using Playwright (JavaScript)",
+  "main": "index.js",
+  "scripts": {
+    "test": "npx playwright test",
+    "test:headed": "npx playwright test --headed",
+    "test:debug": "npx playwright test --debug",
+    "report": "npx playwright show-report"
+  },
+  "keywords": [
+    "playwright",
+    "automation",
+    "testing",
+    "javascript",
+    "demoblaze",
+    "e2e"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "@playwright/test": "^1.40.0"
+  }
+}
