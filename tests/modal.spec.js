@@ -25,7 +25,15 @@ test.describe("Modal Tests", () => {
     await page.waitForTimeout(1000);
 
     await page.goto("/cart.html");
-    await page.waitForSelector("#tbodyid", { visible: true });
+
+    try {
+      await page.waitForSelector("#tbodyid", { visible: true, timeout: 5000 });
+    } catch {
+      await page.waitForSelector(".cart_item", {
+        visible: true,
+        timeout: 5000,
+      });
+    }
 
     await page.click('button[data-target="#orderModal"]');
     await page.waitForSelector("#orderModal", { visible: true });
@@ -33,7 +41,6 @@ test.describe("Modal Tests", () => {
     const modal = page.locator("#orderModal");
     await expect(modal).toBeVisible();
 
-    // Better close button selector
     await page.click("#orderModal .close");
     await page.waitForTimeout(1000);
   });
