@@ -4,8 +4,8 @@ pipeline {
     options {
         // Keep only last 10 builds
         buildDiscarder(logRotator(numToKeepStr: '10'))
-        // Timeout after 30 minutes
-        timeout(time: 30, unit: 'MINUTES')
+        // Timeout after 60 minutes
+        timeout(time: 60, unit: 'MINUTES')
         // Timestamps in console output
         timestamps()
     }
@@ -98,8 +98,10 @@ pipeline {
                         testCommand += " --headed"
                     }
                     
-                    // Run tests
-                    bat testCommand
+                    // Run tests with extended timeout
+                    timeout(time: 30, unit: 'MINUTES') {
+                        bat testCommand
+                    }
                 }
             }
             post {
@@ -107,11 +109,8 @@ pipeline {
                     // Archive test results
                     archiveArtifacts artifacts: 'test-results/**/*', allowEmptyArchive: true
                     
-                    // Publish test results
-                    publishTestResults(
-                        testResultsPattern: 'junit-results.xml',
-                        allowEmptyResults: true
-                    )
+                    // Publish test results (using standard junit step)
+                    junit testResults: 'junit-results.xml', allowEmptyResults: true
                 }
             }
         }
