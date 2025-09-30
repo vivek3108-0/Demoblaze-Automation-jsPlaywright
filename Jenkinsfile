@@ -11,9 +11,6 @@ pipeline {
     }
     
     environment {
-        // Node version
-        NODEJS_HOME = tool 'NodeJS-18'
-        PATH = "${NODEJS_HOME}/bin:${PATH}"
         // Playwright environment variables
         PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = '0'
         PLAYWRIGHT_BROWSERS_PATH = '/opt/playwright'
@@ -49,23 +46,35 @@ pipeline {
             steps {
                 echo 'Checking out code from GitHub...'
                 checkout scm
-                // Clean workspace
-                sh 'rm -rf node_modules test-results playwright-report'
+                // Clean workspace  
+                bat 'if exist node_modules rmdir /s /q node_modules'
+                bat 'if exist test-results rmdir /s /q test-results'
+                bat 'if exist playwright-report rmdir /s /q playwright-report'
             }
         }
         
         stage('Install Dependencies') {
             steps {
+                script {
+                    // Use Node.js if available, otherwise use system Node
+                    try {
+                        def nodeHome = tool name: 'NodeJS-18', type: 'nodejs'
+                        env.PATH = "${nodeHome}/bin:${env.PATH}"
+                    } catch (Exception e) {
+                        echo 'NodeJS tool not configured, using system Node.js'
+                    }
+                }
+                
                 echo 'Installing Node.js dependencies...'
-                sh 'npm ci'
+                bat 'npm ci'
                 
                 echo 'Installing Playwright browsers...'
-                sh 'npx playwright install --with-deps'
+                bat 'npx playwright install --with-deps'
                 
                 // Verify installation
-                sh 'npx playwright --version'
-                sh 'node --version'
-                sh 'npm --version'
+                bat 'npx playwright --version'
+                bat 'node --version'
+                bat 'npm --version'
             }
         }
         
@@ -90,7 +99,7 @@ pipeline {
                     }
                     
                     // Run tests
-                    sh testCommand
+                    bat testCommand
                 }
             }
             post {
@@ -113,7 +122,7 @@ pipeline {
             }
             steps {
                 echo 'Generating HTML test report...'
-                sh 'npx playwright show-report --reporter=html'
+                bat 'npx playwright show-report --reporter=html'
                 
                 // Archive HTML report
                 publishHTML([
@@ -133,9 +142,9 @@ pipeline {
                 script {
                     // Simple performance check
                     if (fileExists('test-results.json')) {
-                        sh '''
-                            echo "Test Execution Summary:"
-                            cat test-results.json | jq '.suites[].specs[] | {title: .title, duration: (.tests[0].results[0].duration // 0)}' || echo "No JSON report found"
+                        bat '''
+                            echo Test Execution Summary:
+                            if exist test-results.json type test-results.json
                         '''
                     }
                 }
@@ -145,14 +154,20 @@ pipeline {
     
     post {
         always {
-            echo 'Pipeline execution completed!'
-            
-            // Clean up large files but keep reports
-            sh '''
-                rm -rf node_modules/.cache
-                find test-results -name "*.webm" -delete || true
-                find test-results -name "*.zip" -delete || true
-            '''
+            script {
+                echo 'Pipeline execution completed!'
+                
+                // Clean up large files but keep reports (Windows compatible)
+                try {
+                    bat '''
+                        if exist node_modules\\.cache rmdir /s /q node_modules\\.cache
+                        for /r test-results %%i in (*.webm) do del "%%i" 2>nul
+                        for /r test-results %%i in (*.zip) do del "%%i" 2>nul
+                    '''
+                } catch (Exception e) {
+                    echo "Cleanup failed: ${e.getMessage()}"
+                }
+            }
         }
         
         success {
@@ -171,10 +186,16 @@ pipeline {
         }
         
         failure {
-            echo '❌ Tests failed or pipeline error occurred!'
-            
-            // Archive failure artifacts
-            archiveArtifacts artifacts: 'test-results/**/*', allowEmptyArchive: true
+            script {
+                echo '❌ Tests failed or pipeline error occurred!'
+                
+                // Archive failure artifacts
+                try {
+                    archiveArtifacts artifacts: 'test-results/**/*', allowEmptyArchive: true
+                } catch (Exception e) {
+                    echo "Could not archive artifacts: ${e.getMessage()}"
+                }
+            }
             
             // Send failure notification (optional)
             script {
